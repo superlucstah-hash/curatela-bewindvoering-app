@@ -1,0 +1,1916 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Curatela — Platform voor Professionele Bewindvoering (CRBP & Justitie)</title>
+  <meta name="description" content="Beheerplatform voor advocaat-bewindvoerders: PSD2 multibanking, OCR-factuurverwerking, SEPA betaalbatches, 1-klik CRBP jaarverslag en WZC zorgportaal." />
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased selection:bg-[var(--primary)] selection:text-[var(--primary-foreground)]">
+  <div id="app" class="min-h-screen flex flex-col">
+    <!-- Top Header -->
+    <header class="bg-[var(--card)] border-b border-[var(--border)] px-6 py-3.5 sticky top-0 z-30">
+      <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+        <!-- Brand & Kantoor -->
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] flex items-center justify-center font-bold text-base shadow-sm">
+            C
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="font-semibold text-base tracking-tight text-[var(--foreground)]">Curatela</h1>
+              <span class="text-xs px-2 py-0.5 rounded-md bg-[var(--secondary)] text-[var(--secondary-foreground)] font-medium">
+                Balie / CRBP Sync
+              </span>
+            </div>
+            <p class="text-xs text-[var(--muted-foreground)]">Advocatenkantoor De Smet &amp; Partners • 48 Actieve Bewindsy-dossiers</p>
+          </div>
+        </div>
+
+        <!-- Active Dossier Selector -->
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-2 bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-1.5">
+            <span class="text-xs font-medium text-[var(--muted-foreground)]">Dossier:</span>
+            <select
+              id="dossier-select"
+              aria-label="Selecteer bewindvoeringsdossier"
+              class="bg-transparent text-xs font-semibold text-[var(--foreground)] focus:outline-none cursor-pointer pr-2"
+            ></select>
+          </div>
+
+          <!-- Role Switcher (Advocaat vs WZC Zorgportaal) -->
+          <div class="flex items-center bg-[var(--background)] border border-[var(--border)] rounded-lg p-1" role="group" aria-label="Weergavemodus">
+            <button
+              id="role-admin-btn"
+              type="button"
+              class="px-3 py-1 rounded-md text-xs font-medium transition-colors"
+            >
+              Advocaat-Bewindvoerder
+            </button>
+            <button
+              id="role-care-btn"
+              type="button"
+              class="px-3 py-1 rounded-md text-xs font-medium transition-colors"
+            >
+              WZC Zorgportaal (GDPR-beperkt)
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Dossier Context Banner -->
+    <section class="bg-[var(--sidebar)] border-b border-[var(--border)] px-6 py-3">
+      <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+        <div id="dossier-banner-left" class="flex flex-wrap items-center gap-x-6 gap-y-2"></div>
+        <div id="dossier-banner-right" class="flex items-center gap-3"></div>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <nav class="bg-[var(--card)] border-b border-[var(--border)] px-6" aria-label="Hoofdmodules">
+      <div class="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto py-2" id="module-tabs">
+        <button
+          type="button"
+          data-tab="financial"
+          class="tab-btn px-4 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-2"
+        >
+          <span>1. Financieel, PSD2 &amp; OCR Facturen</span>
+          <span id="badge-invoices" class="px-1.5 py-0.5 rounded-full text-xs"></span>
+        </button>
+        <button
+          type="button"
+          data-tab="crbp"
+          class="tab-btn px-4 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-2"
+        >
+          <span>2. CRBP Jaarverslag &amp; Vredegerecht</span>
+        </button>
+        <button
+          type="button"
+          data-tab="care"
+          class="tab-btn px-4 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-2"
+        >
+          <span>3. WZC Zorgportaal &amp; Briefautomatisatie</span>
+          <span id="badge-care" class="px-1.5 py-0.5 rounded-full text-xs"></span>
+        </button>
+        <button
+          type="button"
+          data-tab="estate"
+          class="tab-btn px-4 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-2"
+        >
+          <span>4. Woning, Inventaris &amp; Contractopzegging</span>
+          <span id="badge-contracts" class="px-1.5 py-0.5 rounded-full text-xs"></span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Toast Notification Bar -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-md"></div>
+
+    <!-- Main Workspace Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-6 py-6">
+      <div id="workspace-view"></div>
+    </main>
+
+    <!-- Modal Overlay (SEPA XML / CRBP Report / Official Letter Preview) -->
+    <div
+      id="modal-backdrop"
+      class="fixed inset-0 bg-black/60 z-40 hidden items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div class="bg-[var(--card)] text-[var(--foreground)] border border-[var(--border)] rounded-xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
+          <div>
+            <h2 id="modal-title" class="font-semibold text-base text-[var(--foreground)]"></h2>
+            <p id="modal-subtitle" class="text-xs text-[var(--muted-foreground)] mt-0.5"></p>
+          </div>
+          <button
+            id="modal-close-btn"
+            type="button"
+            class="px-3 py-1.5 rounded-lg border border-[var(--border)] text-xs font-medium hover:bg-[var(--secondary)] transition-colors"
+          >
+            Sluiten
+          </button>
+        </div>
+        <div id="modal-body" class="p-6 overflow-y-auto space-y-4 text-sm"></div>
+        <div id="modal-footer" class="px-6 py-3.5 border-t border-[var(--border)] bg-[var(--sidebar)] flex items-center justify-end gap-3"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- INITIAL REALISTIC BELGIAN GUARDIANSHIP STATE ---
+    const CRBP_CATEGORIES = {
+      "INK-01": { label: "Rust- en overlevingspensioen (FPD)", type: "INCOME" },
+      "INK-02": { label: "Vlaams Zorgbudget / Tegemoetkoming hulp aan bejaarden", type: "INCOME" },
+      "INK-03": { label: "Roerende & onroerende inkomsten (Huur / Interest)", type: "INCOME" },
+      "UIT-01": { label: "Verblijfskosten WZC / Huisvesting", type: "EXPENSE" },
+      "UIT-02": { label: "Medische, ziekenhuis- en apotheekkosten", type: "EXPENSE" },
+      "UIT-03": { label: "Leefgeld & persoonlijke uitgaven (Zakgeldrekening)", type: "EXPENSE" },
+      "UIT-04": { label: "Nutsvoorzieningen, telecom & verzekeringen", type: "EXPENSE" },
+      "UIT-05": { label: "Staat van kosten en ereloon bewindvoerder (Art. 497/5 BW)", type: "EXPENSE" }
+    };
+
+    const state = {
+      activeDossierId: "dos-1",
+      activeTab: "financial",
+      roleMode: "admin", // 'admin' or 'care'
+      dossiers: [
+        {
+          id: "dos-1",
+          name: "Roger Vandenberghe",
+          age: 84,
+          birthDate: "14/03/1942",
+          rrnMasked: "42.03.14-189.64",
+          crbpRef: "2024/ANT2/08419",
+          canton: "Vredegerecht 2de Kanton Antwerpen",
+          appointmentDate: "12/09/2024",
+          reportDue: "30/09/2027",
+          scope: "Goederen & Persoon (Vertegenwoordiging)",
+          livingSituation: "WZC Sint-Camillus Antwerpen (Kamer 204)",
+          katzScale: "Katz B",
+          mutuality: "CM Antwerpen (101)",
+          weeklyAllowance: 85,
+          minBuffer: 1500,
+          accounts: {
+            management: { iban: "BE68 5390 0754 7034", bank: "KBC Beheerrekening", balance: 4820.50 },
+            allowance: { iban: "BE42 5390 0811 2290", bank: "KBC Leefgeldrekening", balance: 245.00 },
+            savings: { iban: "BE91 0018 4429 1055", bank: "BNP Paribas Spaarrekening (Geblokkeerd)", balance: 68400.00 }
+          },
+          annualIncomes: [
+            { code: "INK-01", description: "Federaal Pensioendienst (FPD) - 12 maanden", amount: 23760.00, docsCount: 12 },
+            { code: "INK-02", description: "Vlaams Zorgbudget voor zwaar zorgbehoevenden (€ 140/m)", amount: 1680.00, docsCount: 12 },
+            { code: "INK-03", description: "Rente gereglementeerde spaarrekening", amount: 820.00, docsCount: 1 }
+          ],
+          annualExpenses: [
+            { code: "UIT-01", description: "Maandelijkse woonzorgcentrumfacturen WZC Sint-Camillus", amount: 22140.00, docsCount: 11 },
+            { code: "UIT-02", description: "Apotheek, remgeld huisarts & hospitalisatie ZNA", amount: 1495.40, docsCount: 19 },
+            { code: "UIT-03", description: "Doorstortingen wekelijks leefgeld (€ 85/week)", amount: 4420.00, docsCount: 52 },
+            { code: "UIT-04", description: "Familiale verzekering & opzegkosten oude woning", amount: 318.20, docsCount: 4 }
+          ],
+          invoices: [
+            {
+              id: "inv-101",
+              supplier: "WZC Sint-Camillus vzw",
+              iban: "BE31 7330 4912 8821",
+              amount: 2165.40,
+              ogm: "+++090/9337/55493+++",
+              ogmValid: true,
+              dueDate: "15/11/2026",
+              crbpCode: "UIT-01",
+              source: "Peppol e-Invoicing",
+              confidence: 99,
+              status: "READY",
+              selected: true
+            },
+            {
+              id: "inv-102",
+              supplier: "Apotheek De Linde (Maandafrekening WZC)",
+              iban: "BE84 3631 2098 4410",
+              amount: 142.85,
+              ogm: "+++104/8821/30948+++",
+              ogmValid: true,
+              dueDate: "20/11/2026",
+              crbpCode: "UIT-02",
+              source: "OCR PDF Mailbox",
+              confidence: 98,
+              status: "READY",
+              selected: true
+            },
+            {
+              id: "inv-103",
+              supplier: "ZNA Middelheim (Consultatie Geriatrie)",
+              iban: "BE19 0910 1234 9981",
+              amount: 64.20,
+              ogm: "+++420/1190/44286+++",
+              ogmValid: true,
+              dueDate: "28/11/2026",
+              crbpCode: "UIT-02",
+              source: "Doccle / eBox",
+              confidence: 96,
+              status: "READY",
+              selected: false
+            }
+          ],
+          careRequests: [
+            {
+              id: "cr-201",
+              requesterOrg: "WZC Sint-Camillus — Hoofdverpleging Afd. 2",
+              requesterName: "Sofie Vermeulen",
+              title: "Orthopedische winterschoenen op maat",
+              justification: "Bestaande schoenen geven drukwonden; voorschrift geriater bijgevoegd.",
+              amount: 165.00,
+              crbpCode: "UIT-03",
+              date: "04/11/2026",
+              status: "PENDING"
+            },
+            {
+              id: "cr-202",
+              requesterOrg: "WZC Sint-Camillus — Sociale Dienst",
+              requesterName: "Marc Janssens",
+              title: "Herstelling gehoorapparaat rechts (Lapperre)",
+              justification: "Toestel werkt niet meer na val op kamer; bestek van € 95,00 ontvangen.",
+              amount: 95.00,
+              crbpCode: "UIT-02",
+              date: "05/11/2026",
+              status: "PENDING"
+            },
+            {
+              id: "cr-203",
+              requesterOrg: "WZC Sint-Camillus — Animatie & Zorg",
+              requesterName: "Sofie Vermeulen",
+              title: "Winterjas en 3 wollen truien",
+              justification: "Aankoop winterkledij voor familiebezoek en wandelingen.",
+              amount: 180.00,
+              crbpCode: "UIT-03",
+              date: "22/10/2026",
+              status: "APPROVED"
+            }
+          ],
+          notificationsSent: {
+            fod: true,
+            mutuality: true,
+            banks: true,
+            utilities: false
+          },
+          assets: [
+            {
+              id: "as-1",
+              name: "Voormalige gezinswoning (Rijwoning)",
+              location: "Kerkstraat 84, 2140 Borgerhout",
+              estimatedValue: 265000,
+              category: "Onroerend goed",
+              judicialAuthRequired: true,
+              judicialAuthRef: "Beschikking Art. 499/7 BW — Rolnr. 26A1092 (Machtiging onderhandse verkoop)",
+              photoCount: 18,
+              status: "Te koop via notaris (Compromis in opmaak)"
+            },
+            {
+              id: "as-2",
+              name: "Inboedel & antieke eiken eetkamer",
+              location: "Kerkstraat 84, 2140 Borgerhout",
+              estimatedValue: 1850,
+              category: "Roerend goed (Plaatsbeschrijving)",
+              judicialAuthRequired: false,
+              judicialAuthRef: "Opgenomen in aanvangsvermogensverslag CRBP",
+              photoCount: 12,
+              status: "Geïnventariseerd met tijdstempel"
+            }
+          ],
+          contracts: [
+            { id: "ct-1", provider: "Telenet (All-Internet + TV)", contractNr: "KL-8849201", monthlyCost: 84.50, reason: "Verhuis naar WZC Sint-Camillus", status: "ACTIVE" },
+            { id: "ct-2", provider: "Engie Electrabel (Gas & Elektriciteit)", contractNr: "EAN-541448820019", monthlyCost: 145.00, reason: "Leegstandstarief / Overdracht bij verkoop", status: "ACTIVE" },
+            { id: "ct-3", provider: "Mediahuis (Gazet van Antwerpen Papier)", contractNr: "ABO-33910", monthlyCost: 34.00, reason: "Omgezet naar collectieve leesmap WZC", status: "TERMINATED" },
+            { id: "ct-4", provider: "Water-link (Drinkwater)", contractNr: "WL-992011", monthlyCost: 26.00, reason: "Afsluiting wegens definitieve opname WZC", status: "ACTIVE" }
+          ]
+        },
+        {
+          id: "dos-2",
+          name: "Maria Janssens",
+          age: 79,
+          birthDate: "28/07/1947",
+          rrnMasked: "47.07.28-312.18",
+          crbpRef: "2025/GNT1/03102",
+          canton: "Vredegerecht 1ste Kanton Gent",
+          appointmentDate: "03/02/2025",
+          reportDue: "28/02/2027",
+          scope: "Goederen & Persoon (Vertegenwoordiging)",
+          livingSituation: "Thuiswonend met Familiehulp (Overstap WZC gepland)",
+          katzScale: "Katz A",
+          mutuality: "Solidaris Oost-Vlaanderen (306)",
+          weeklyAllowance: 110,
+          minBuffer: 1200,
+          accounts: {
+            management: { iban: "BE12 0689 3310 4492", bank: "Belfius Beheerrekening", balance: 2890.15 },
+            allowance: { iban: "BE55 0689 3310 8810", bank: "Belfius Leefgeldkaart", balance: 165.40 },
+            savings: { iban: "BE77 0689 9901 1120", bank: "Belfius Spaarrekening", balance: 19450.00 }
+          },
+          annualIncomes: [
+            { code: "INK-01", description: "Overlevingspensioen FPD - 12 maanden", amount: 21480.00, docsCount: 12 },
+            { code: "INK-02", description: "Zorgbudget voor ouderen met zorgnood", amount: 3120.00, docsCount: 12 }
+          ],
+          annualExpenses: [
+            { code: "UIT-01", description: "Sociale huurwoning De Gentse Haard", amount: 7440.00, docsCount: 12 },
+            { code: "UIT-02", description: "Thuisverpleging Wit-Gele Kruis & Gezinszorg Familiehulp", amount: 4890.00, docsCount: 24 },
+            { code: "UIT-03", description: "Wekelijks leefgeld & warme maaltijden aan huis", amount: 6420.00, docsCount: 52 },
+            { code: "UIT-04", description: "Luminus energie, Proximus & brandverzekering", amount: 2980.00, docsCount: 16 }
+          ],
+          invoices: [
+            {
+              id: "inv-201",
+              supplier: "Familiehulp vzw (Gezinszorg Oktober)",
+              iban: "BE44 7340 1122 9980",
+              amount: 384.60,
+              ogm: "+++310/4489/11294+++",
+              ogmValid: true,
+              dueDate: "18/11/2026",
+              crbpCode: "UIT-02",
+              source: "Peppol e-Invoicing",
+              confidence: 99,
+              status: "READY",
+              selected: true
+            },
+            {
+              id: "inv-202",
+              supplier: "Traiteur Zorgmaaltijden Gent",
+              iban: "BE90 0014 5582 3910",
+              amount: 215.00,
+              ogm: "+++881/2039/44110+++",
+              ogmValid: true,
+              dueDate: "22/11/2026",
+              crbpCode: "UIT-03",
+              source: "OCR PDF Mailbox",
+              confidence: 94,
+              status: "READY",
+              selected: true
+            }
+          ],
+          careRequests: [
+            {
+              id: "cr-301",
+              requesterOrg: "Familiehulp Gent — Wijkverantwoordelijke",
+              requesterName: "Annelies De Cock",
+              title: "Vervanging defecte microgolfoven voor opwarmen maaltijden",
+              justification: "Oude microgolfoven vonkt en is onveilig geworden voor mevrouw.",
+              amount: 119.00,
+              crbpCode: "UIT-03",
+              date: "05/11/2026",
+              status: "PENDING"
+            }
+          ],
+          notificationsSent: {
+            fod: true,
+            mutuality: true,
+            banks: true,
+            utilities: true
+          },
+          assets: [
+            {
+              id: "as-201",
+              name: "Huurwaarborgkorf Korfine",
+              location: "Vlaanderenstraat 19 bus 2, 9000 Gent",
+              estimatedValue: 1860,
+              category: "Geblokkeerde waarborg",
+              judicialAuthRequired: false,
+              judicialAuthRef: "Vrijgave bij einde huurcontract",
+              photoCount: 6,
+              status: "Actief tot verhuis WZC"
+            }
+          ],
+          contracts: [
+            { id: "ct-201", provider: "Proximus (Vaste Telefoon & TV)", contractNr: "PX-661209", monthlyCost: 68.00, reason: "Voorbereiding opname WZC", status: "ACTIVE" }
+          ]
+        },
+        {
+          id: "dos-3",
+          name: "Jozef Peeters",
+          age: 88,
+          birthDate: "05/11/1938",
+          rrnMasked: "38.11.05-041.92",
+          crbpRef: "2023/LEU1/11940",
+          canton: "Vredegerecht 1ste Kanton Leuven",
+          appointmentDate: "19/05/2023",
+          reportDue: "31/05/2027",
+          scope: "Goederen & Persoon (Vertegenwoordiging)",
+          livingSituation: "WZC De Vijvers Leuven (Afdeling Dementiezorg)",
+          katzScale: "Katz Cd",
+          mutuality: "Helan Onafhankelijk Ziekenfonds (526)",
+          weeklyAllowance: 60,
+          minBuffer: 2000,
+          accounts: {
+            management: { iban: "BE09 3300 6119 8240", bank: "ING Beheerrekening", balance: 6140.80 },
+            allowance: { iban: "BE81 3300 6119 9901", bank: "ING Leefgeldrekening", balance: 310.00 },
+            savings: { iban: "BE50 3300 9981 0012", bank: "ING Effecten & Spaarrekening", balance: 142000.00 }
+          },
+          annualIncomes: [
+            { code: "INK-01", description: "Ambtenarenpensioen FPD - 12 maanden", amount: 31200.00, docsCount: 12 },
+            { code: "INK-02", description: "Vlaams Zorgbudget (€ 140/m)", amount: 1680.00, docsCount: 12 },
+            { code: "INK-03", description: "Huurinkomsten verhuurd appartement Heverlee", amount: 10200.00, docsCount: 12 }
+          ],
+          annualExpenses: [
+            { code: "UIT-01", description: "Verblijfskosten WZC De Vijvers Leuven", amount: 25680.00, docsCount: 12 },
+            { code: "UIT-02", description: "UZ Leuven Geriatrie & Medicatie", amount: 2140.00, docsCount: 15 },
+            { code: "UIT-03", description: "Leefgeld, pedicure & kapper in WZC", amount: 3120.00, docsCount: 52 },
+            { code: "UIT-04", description: "Syndicus- en onroerende voorheffing appartement Heverlee", amount: 2890.00, docsCount: 6 }
+          ],
+          invoices: [
+            {
+              id: "inv-301",
+              supplier: "WZC De Vijvers Leuven",
+              iban: "BE72 0016 8832 1044",
+              amount: 2240.00,
+              ogm: "+++501/2298/77160+++",
+              ogmValid: true,
+              dueDate: "14/11/2026",
+              crbpCode: "UIT-01",
+              source: "Peppol e-Invoicing",
+              confidence: 100,
+              status: "READY",
+              selected: true
+            }
+          ],
+          careRequests: [],
+          notificationsSent: {
+            fod: true,
+            mutuality: true,
+            banks: true,
+            utilities: true
+          },
+          assets: [
+            {
+              id: "as-301",
+              name: "Opbrengstappartement (Verhuurd)",
+              location: "Naamsesteenweg 210 bus 4, 3001 Heverlee",
+              estimatedValue: 310000,
+              category: "Onroerend goed (Verhuurd)",
+              judicialAuthRequired: false,
+              judicialAuthRef: "Regulier beheer — Huurindexatie automatisch opgevolgd",
+              photoCount: 24,
+              status: "Verhuurd (€ 850/maand)"
+            }
+          ],
+          contracts: []
+        }
+      ]
+    };
+
+    // --- HELPER UTILITIES ---
+    function getActiveDossier() {
+      return state.dossiers.find((d) => d.id === state.activeDossierId) || state.dossiers[0];
+    }
+
+    function formatEUR(amount) {
+      return new Intl.NumberFormat("nl-BE", { style: "currency", currency: "EUR" }).format(amount);
+    }
+
+    function showToast(title, message) {
+      const container = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+      toast.className =
+        "bg-[var(--card)] text-[var(--foreground)] border border-[var(--primary)] rounded-xl p-4 shadow-lg transition-all";
+      toast.innerHTML = `
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-xs font-semibold text-[var(--foreground)]">${title}</p>
+            <p class="text-xs text-[var(--muted-foreground)] mt-1">${message}</p>
+          </div>
+          <span class="text-xs px-2 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] font-medium">OK</span>
+        </div>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.remove();
+      }, 4200);
+    }
+
+    function openModal(title, subtitle, bodyHtml, footerHtml) {
+      document.getElementById("modal-title").textContent = title;
+      document.getElementById("modal-subtitle").textContent = subtitle;
+      document.getElementById("modal-body").innerHTML = bodyHtml;
+      document.getElementById("modal-footer").innerHTML = footerHtml || "";
+      const backdrop = document.getElementById("modal-backdrop");
+      backdrop.classList.remove("hidden");
+      backdrop.classList.add("flex");
+    }
+
+    function closeModal() {
+      const backdrop = document.getElementById("modal-backdrop");
+      backdrop.classList.add("hidden");
+      backdrop.classList.remove("flex");
+    }
+
+    document.getElementById("modal-close-btn").addEventListener("click", closeModal);
+    document.getElementById("modal-backdrop").addEventListener("click", (e) => {
+      if (e.target.id === "modal-backdrop") closeModal();
+    });
+
+    // --- RENDER HEADER, BANNER & TABS ---
+    function renderShell() {
+      const d = getActiveDossier();
+
+      // Populate select
+      const select = document.getElementById("dossier-select");
+      select.innerHTML = state.dossiers
+        .map(
+          (dos) =>
+            `<option value="${dos.id}" ${dos.id === d.id ? "selected" : ""}>${dos.name} (${dos.age}j) — ${dos.crbpRef}</option>`
+        )
+        .join("");
+
+      // Role buttons
+      const adminBtn = document.getElementById("role-admin-btn");
+      const careBtn = document.getElementById("role-care-btn");
+      if (state.roleMode === "admin") {
+        adminBtn.className = "px-3 py-1 rounded-md text-xs font-semibold bg-[var(--primary)] text-[var(--primary-foreground)]";
+        careBtn.className = "px-3 py-1 rounded-md text-xs font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)]";
+      } else {
+        careBtn.className = "px-3 py-1 rounded-md text-xs font-semibold bg-[var(--primary)] text-[var(--primary-foreground)]";
+        adminBtn.className = "px-3 py-1 rounded-md text-xs font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)]";
+      }
+
+      // Banner Left
+      const bannerLeft = document.getElementById("dossier-banner-left");
+      bannerLeft.innerHTML = `
+        <div>
+          <span class="text-xs text-[var(--muted-foreground)]">Beschermde persoon:</span>
+          <strong class="text-xs font-semibold ml-1">${d.name} (${d.birthDate})</strong>
+        </div>
+        <div>
+          <span class="text-xs text-[var(--muted-foreground)]">Bevoegde rechter:</span>
+          <strong class="text-xs font-semibold ml-1">${d.canton}</strong>
+        </div>
+        <div>
+          <span class="text-xs text-[var(--muted-foreground)]">Verblijf:</span>
+          <strong class="text-xs font-semibold ml-1">${d.livingSituation}</strong>
+        </div>
+        <div>
+          <span class="text-xs text-[var(--muted-foreground)]">Zorgprofiel:</span>
+          <span class="text-xs font-medium px-2 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] ml-1">${d.katzScale} • ${d.mutuality}</span>
+        </div>
+      `;
+
+      // Banner Right
+      const bannerRight = document.getElementById("dossier-banner-right");
+      if (state.roleMode === "care") {
+        bannerRight.innerHTML = `
+          <span class="text-xs px-2.5 py-1 rounded-md border border-[var(--border)] bg-[var(--card)] font-medium">
+            GDPR-afgeschermde weergave: Enkel leefgeld- &amp; zorgaanvraagstatus zichtbaar
+          </span>
+        `;
+      } else {
+        bannerRight.innerHTML = `
+          <span class="text-xs text-[var(--muted-foreground)]">Volgend CRBP-verslag: <strong class="text-[var(--foreground)]">${d.reportDue}</strong></span>
+        `;
+      }
+
+      // Badges
+      const readyInvoices = d.invoices.filter((i) => i.status === "READY").length;
+      const pendingCare = d.careRequests.filter((c) => c.status === "PENDING").length;
+      const activeContracts = d.contracts.filter((c) => c.status === "ACTIVE").length;
+
+      document.getElementById("badge-invoices").textContent = readyInvoices;
+      document.getElementById("badge-invoices").className =
+        "px-2 py-0.5 rounded-full text-xs bg-[var(--secondary)] text-[var(--secondary-foreground)]";
+
+      document.getElementById("badge-care").textContent = pendingCare;
+      document.getElementById("badge-care").className =
+        "px-2 py-0.5 rounded-full text-xs bg-[var(--secondary)] text-[var(--secondary-foreground)]";
+
+      document.getElementById("badge-contracts").textContent = activeContracts;
+      document.getElementById("badge-contracts").className =
+        "px-2 py-0.5 rounded-full text-xs bg-[var(--secondary)] text-[var(--secondary-foreground)]";
+
+      // Active Tab styling
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        const tab = btn.getAttribute("data-tab");
+        if (tab === state.activeTab) {
+          btn.className =
+            "tab-btn px-4 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-2 bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm";
+        } else {
+          btn.className =
+            "tab-btn px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex items-center gap-2 text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]";
+        }
+      });
+
+      renderWorkspace();
+    }
+
+    // --- WORKSPACE DISPATCHER ---
+    function renderWorkspace() {
+      const container = document.getElementById("workspace-view");
+      if (state.activeTab === "financial") {
+        container.innerHTML = renderFinancialTab();
+        bindFinancialEvents();
+      } else if (state.activeTab === "crbp") {
+        container.innerHTML = renderCrbpTab();
+        bindCrbpEvents();
+      } else if (state.activeTab === "care") {
+        container.innerHTML = renderCareTab();
+        bindCareEvents();
+      } else if (state.activeTab === "estate") {
+        container.innerHTML = renderEstateTab();
+        bindEstateEvents();
+      }
+    }
+
+    // =========================================================================
+    // TAB 1: FINANCIEEL, PSD2 MULTIBANKING & OCR FACTUURHUB
+    // =========================================================================
+    function renderFinancialTab() {
+      const d = getActiveDossier();
+      const readyInvoices = d.invoices.filter((i) => i.status === "READY");
+      const selectedInvoices = readyInvoices.filter((i) => i.selected);
+      const batchTotal = selectedInvoices.reduce((acc, i) => acc + i.amount, 0);
+      const projectedBalance = d.accounts.management.balance - batchTotal;
+      const bufferHealthy = projectedBalance >= d.minBuffer;
+
+      if (state.roleMode === "care") {
+        return `
+          <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-base font-semibold">Leefgeld &amp; Comfortbudget Status (WZC Inzage)</h2>
+                <p class="text-xs text-[var(--muted-foreground)] mt-1">
+                  Conform de GDPR en het beroepsgeheim van de bewindvoerder zijn de beheerrekening en spaarrekeningen afgeschermd.
+                </p>
+              </div>
+              <span class="px-3 py-1 rounded-full text-xs font-semibold bg-[var(--secondary)] text-[var(--secondary-foreground)]">
+                Leefgeld Actief: ${formatEUR(d.weeklyAllowance)} / week
+              </span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              <div class="p-4 rounded-xl border border-[var(--border)] bg-[var(--background)]">
+                <p class="text-xs text-[var(--muted-foreground)]">Huidig saldo zakgeld-/leefgeldrekening (${d.accounts.allowance.iban})</p>
+                <p class="text-xl font-bold mt-1">${formatEUR(d.accounts.allowance.balance)}</p>
+                <p class="text-xs text-[var(--muted-foreground)] mt-1">Volgende automatische storting: maandagochtend 08:00</p>
+              </div>
+              <div class="p-4 rounded-xl border border-[var(--border)] bg-[var(--background)] flex flex-col justify-between">
+                <div>
+                  <p class="text-xs text-[var(--muted-foreground)]">Ruimte voor extra zorgaanvragen deze maand</p>
+                  <p class="text-base font-semibold mt-1">Ruim voldoende (Groen licht voor kleine uitgaven tot € 250)</p>
+                </div>
+                <button
+                  type="button"
+                  id="jump-to-care-btn"
+                  class="mt-3 self-start px-3 py-1.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold"
+                >
+                  Dien een Zorgaanvraag in →
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="space-y-6">
+          <!-- PSD2 Multibanking Cards -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Beheerrekening -->
+            <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Beheerrekening (PSD2 Live)</span>
+                  <span class="text-xs px-2 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] font-medium">Ibanity Sync</span>
+                </div>
+                <p class="text-2xl font-bold mt-2">${formatEUR(d.accounts.management.balance)}</p>
+                <p class="text-xs text-[var(--muted-foreground)] mt-1 font-mono">${d.accounts.management.iban} • ${d.accounts.management.bank}</p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-[var(--border)] flex items-center justify-between text-xs">
+                <span class="text-[var(--muted-foreground)]">Minimumbuffer ingesteld:</span>
+                <span class="font-semibold">${formatEUR(d.minBuffer)}</span>
+              </div>
+            </div>
+
+            <!-- Leefgeldrekening + Periodieke Automatisatie -->
+            <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Leefgeldrekening (Zakgeld)</span>
+                  <span class="text-xs px-2 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] font-medium">Elke maandag</span>
+                </div>
+                <p class="text-2xl font-bold mt-2">${formatEUR(d.accounts.allowance.balance)}</p>
+                <p class="text-xs text-[var(--muted-foreground)] mt-1 font-mono">${d.accounts.allowance.iban}</p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-[var(--border)] flex items-center justify-between gap-2 text-xs">
+                <label for="allowance-input" class="text-[var(--muted-foreground)]">Wekelijks leefgeld (€):</label>
+                <div class="flex items-center gap-1.5">
+                  <input
+                    id="allowance-input"
+                    type="number"
+                    min="20"
+                    max="500"
+                    step="5"
+                    value="${d.weeklyAllowance}"
+                    class="w-20 px-2 py-1 rounded border border-[var(--border)] bg-[var(--background)] text-xs font-semibold text-right"
+                  />
+                  <button
+                    id="save-allowance-btn"
+                    type="button"
+                    class="px-2.5 py-1 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] font-semibold hover:opacity-90"
+                  >
+                    Bewaar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Spaarrekening -->
+            <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Reserve &amp; Spaarrekening</span>
+                  <span class="text-xs px-2 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] font-medium">Art. 499/7 BW</span>
+                </div>
+                <p class="text-2xl font-bold mt-2">${formatEUR(d.accounts.savings.balance)}</p>
+                <p class="text-xs text-[var(--muted-foreground)] mt-1 font-mono">${d.accounts.savings.iban}</p>
+              </div>
+              <div class="mt-4 pt-3 border-t border-[var(--border)] flex items-center justify-between text-xs">
+                <span class="text-[var(--muted-foreground)]">Opname vereist machtiging:</span>
+                <span class="font-semibold">Vrederechter</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Smart OCR & Peppol Invoice Queue -->
+          <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 shadow-sm space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 class="text-base font-semibold">Slimme Factuurverwerking (OCR &amp; Peppol) → SEPA Betaalbatch</h2>
+                <p class="text-xs text-[var(--muted-foreground)] mt-0.5">
+                  Inkomende facturen worden automatisch uitgelezen op IBAN, Modulo-97 OGM en gekoppeld aan de wettelijke CRBP-rubriek.
+                </p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2.5">
+                <button
+                  id="simulate-ocr-btn"
+                  type="button"
+                  class="px-3.5 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--secondary)] text-xs font-semibold transition-colors"
+                >
+                  + Simuleer Inkomende Factuur (OCR Scan)
+                </button>
+                <button
+                  id="generate-sepa-btn"
+                  type="button"
+                  ${selectedInvoices.length === 0 ? "disabled" : ""}
+                  class="px-4 py-2 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold shadow-sm hover:opacity-95 disabled:opacity-40 transition-opacity"
+                >
+                  Genereer SEPA Batch (${selectedInvoices.length} facturen • ${formatEUR(batchTotal)})
+                </button>
+              </div>
+            </div>
+
+            <!-- Balance Guard Banner -->
+            <div class="p-3.5 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div>
+                <span class="font-semibold">Automatische Saldobewaker:</span>
+                <span class="text-[var(--muted-foreground)] ml-1">
+                  Saldo na uitvoering geselecteerde batch:
+                  <strong class="text-[var(--foreground)]">${formatEUR(projectedBalance)}</strong>
+                  (Minimumbuffer: ${formatEUR(d.minBuffer)})
+                </span>
+              </div>
+              <span class="px-2.5 py-1 rounded font-semibold ${
+                bufferHealthy
+                  ? "bg-[var(--secondary)] text-[var(--secondary-foreground)]"
+                  : "bg-[var(--primary)] text-[var(--primary-foreground)]"
+              }">
+                ${bufferHealthy ? "✓ Ruim boven minimumbuffer — Leefgeld gegarandeerd" : "Let op: Buffer wordt aangesproken"}
+              </span>
+            </div>
+
+            <!-- Invoices Table -->
+            <div class="overflow-x-auto border border-[var(--border)] rounded-xl">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-[var(--border)] bg-[var(--sidebar)] text-xs text-[var(--muted-foreground)]">
+                    <th class="py-3 px-4 w-10">Batch</th>
+                    <th class="py-3 px-4">Leverancier &amp; Kanaal</th>
+                    <th class="py-3 px-4">Gestructureerde Mededeling (OGM)</th>
+                    <th class="py-3 px-4">CRBP-Rubriek (AI Tag)</th>
+                    <th class="py-3 px-4">Vervaldatum</th>
+                    <th class="py-3 px-4 text-right">Bedrag</th>
+                    <th class="py-3 px-4 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-[var(--border)] text-xs">
+                  ${d.invoices
+                    .map(
+                      (inv) => `
+                    <tr class="hover:bg-[var(--background)] transition-colors">
+                      <td class="py-3.5 px-4">
+                        <input
+                          type="checkbox"
+                          data-inv-id="${inv.id}"
+                          class="inv-checkbox w-4 h-4 rounded cursor-pointer"
+                          ${inv.selected && inv.status === "READY" ? "checked" : ""}
+                          ${inv.status !== "READY" ? "disabled" : ""}
+                          aria-label="Selecteer factuur ${inv.supplier}"
+                        />
+                      </td>
+                      <td class="py-3.5 px-4">
+                        <p class="font-semibold text-[var(--foreground)]">${inv.supplier}</p>
+                        <p class="text-xs text-[var(--muted-foreground)] font-mono">${inv.iban} • ${inv.source} (${inv.confidence}% OCR)</p>
+                      </td>
+                      <td class="py-3.5 px-4 font-mono">
+                        <span class="px-2 py-0.5 rounded bg-[var(--background)] border border-[var(--border)]">${inv.ogm}</span>
+                        <span class="ml-1 text-xs text-[var(--muted-foreground)]">✓ Mod97</span>
+                      </td>
+                      <td class="py-3.5 px-4">
+                        <select
+                          data-inv-cat="${inv.id}"
+                          aria-label="CRBP-rubriek voor ${inv.supplier}"
+                          class="inv-cat-select bg-[var(--background)] border border-[var(--border)] rounded px-2 py-1 text-xs font-medium"
+                        >
+                          ${Object.entries(CRBP_CATEGORIES)
+                            .filter(([, val]) => val.type === "EXPENSE")
+                            .map(
+                              ([code, val]) =>
+                                `<option value="${code}" ${inv.crbpCode === code ? "selected" : ""}>${code}: ${val.label}</option>`
+                            )
+                            .join("")}
+                        </select>
+                      </td>
+                      <td class="py-3.5 px-4">${inv.dueDate}</td>
+                      <td class="py-3.5 px-4 text-right font-semibold">${formatEUR(inv.amount)}</td>
+                      <td class="py-3.5 px-4 text-right">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          inv.status === "PAID"
+                            ? "bg-[var(--secondary)] text-[var(--muted-foreground)]"
+                            : "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                        }">
+                          ${inv.status === "PAID" ? "Betaald & Gecategoriseerd" : "Klaar voor SEPA"}
+                        </span>
+                      </td>
+                    </tr>
+                  `
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function bindFinancialEvents() {
+      const d = getActiveDossier();
+      const jumpBtn = document.getElementById("jump-to-care-btn");
+      if (jumpBtn) {
+        jumpBtn.addEventListener("click", () => {
+          state.activeTab = "care";
+          renderShell();
+        });
+        return;
+      }
+
+      // Save weekly allowance
+      document.getElementById("save-allowance-btn").addEventListener("click", () => {
+        const val = parseFloat(document.getElementById("allowance-input").value);
+        if (!isNaN(val) && val >= 20) {
+          d.weeklyAllowance = val;
+          showToast(
+            "Leefgeldschema Bijgewerkt",
+            `Automatische wekelijkse opdracht voor ${d.name} ingesteld op ${formatEUR(val)} met voorafgaande saldocheck.`
+          );
+          renderShell();
+        }
+      });
+
+      // Checkbox toggle
+      document.querySelectorAll(".inv-checkbox").forEach((cb) => {
+        cb.addEventListener("change", (e) => {
+          const invId = e.target.getAttribute("data-inv-id");
+          const inv = d.invoices.find((i) => i.id === invId);
+          if (inv) {
+            inv.selected = e.target.checked;
+            renderWorkspace();
+          }
+        });
+      });
+
+      // CRBP Category change
+      document.querySelectorAll(".inv-cat-select").forEach((sel) => {
+        sel.addEventListener("change", (e) => {
+          const invId = e.target.getAttribute("data-inv-cat");
+          const inv = d.invoices.find((i) => i.id === invId);
+          if (inv) {
+            inv.crbpCode = e.target.value;
+            showToast(
+              "CRBP-Rubriek Aangepast",
+              `Factuur ${inv.supplier} gekoppeld aan rubriek ${inv.crbpCode} voor het jaarverslag.`
+            );
+          }
+        });
+      });
+
+      // Simulate OCR Invoice
+      document.getElementById("simulate-ocr-btn").addEventListener("click", () => {
+        const sampleSuppliers = [
+          {
+            supplier: "CM Zorgwinkel (Verhuur Looprek & Matras)",
+            iban: "BE61 0682 4099 1182",
+            amount: 78.50,
+            ogm: "+++210/4829/19073+++",
+            crbpCode: "UIT-02",
+            source: "OCR PDF Mailbox"
+          },
+          {
+            supplier: "Fluvius / Engie Eindafrekening",
+            iban: "BE49 2100 0008 8921",
+            amount: 134.90,
+            ogm: "+++609/1145/20856+++",
+            crbpCode: "UIT-04",
+            source: "Peppol e-Invoicing"
+          },
+          {
+            supplier: "Ambulancedienst Antwerpen-Zuid",
+            iban: "BE22 7310 4491 0082",
+            amount: 92.40,
+            ogm: "+++390/8112/64021+++",
+            crbpCode: "UIT-02",
+            source: "Doccle / eBox"
+          }
+        ];
+        const pick = sampleSuppliers[d.invoices.length % sampleSuppliers.length];
+        d.invoices.unshift({
+          id: "inv-" + Date.now(),
+          supplier: pick.supplier,
+          iban: pick.iban,
+          amount: pick.amount,
+          ogm: pick.ogm,
+          ogmValid: true,
+          dueDate: "30/11/2026",
+          crbpCode: pick.crbpCode,
+          source: pick.source,
+          confidence: 99,
+          status: "READY",
+          selected: true
+        });
+        showToast(
+          "Nieuwe Factuur Gescand & Gekoppeld",
+          `${pick.supplier} (${formatEUR(pick.amount)}) automatisch herkend en getagd onder ${pick.crbpCode}.`
+        );
+        renderShell();
+      });
+
+      // Generate SEPA XML Batch
+      document.getElementById("generate-sepa-btn").addEventListener("click", () => {
+        const selected = d.invoices.filter((i) => i.status === "READY" && i.selected);
+        if (selected.length === 0) return;
+        const total = selected.reduce((sum, i) => sum + i.amount, 0);
+        const msgId = `CURATELA-${d.crbpRef.replace(/\//g, "-")}-${Date.now().toString().slice(-5)}`;
+
+        const xmlTransactions = selected
+          .map(
+            (inv, idx) => `      <CdtTrfTxInf>
+        <PmtId><EndToEndId>E2E-${idx + 1}-${inv.id}</EndToEndId></PmtId>
+        <Amt><InstdAmt Ccy="EUR">${inv.amount.toFixed(2)}</InstdAmt></Amt>
+        <Cdtr><Nm>${inv.supplier.replace(/&/g, "&amp;")}</Nm></Cdtr>
+        <CdtrAcct><Id><IBAN>${inv.iban.replace(/\s+/g, "")}</IBAN></Id></CdtrAcct>
+        <RmtInf><Strd><CdtrRefInf><Ref>${inv.ogm}</Ref></CdtrRefInf></Strd></RmtInf>
+      </CdtTrfTxInf>`
+          )
+          .join("\n");
+
+        const sepaXml = `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03">
+  <CstmrCdtTrfInitn>
+    <GrpHdr>
+      <MsgId>${msgId}</MsgId>
+      <CreDtTm>${new Date().toISOString()}</CreDtTm>
+      <NbOfTxs>${selected.length}</NbOfTxs>
+      <CtrlSum>${total.toFixed(2)}</CtrlSum>
+      <InitgPty><Nm>Mr. De Smet q.q. Bewindvoerder ${d.name}</Nm></InitgPty>
+    </GrpHdr>
+    <PmtInf>
+      <PmtInfId>BATCH-${d.id.toUpperCase()}</PmtInfId>
+      <PmtMtd>TRF</PmtMtd>
+      <Dbtr><Nm>${d.name} (Onder Bewind CRBP ${d.crbpRef})</Nm></Dbtr>
+      <DbtrAcct><Id><IBAN>${d.accounts.management.iban.replace(/\s+/g, "")}</IBAN></Id></DbtrAcct>
+${xmlTransactions}
+    </PmtInf>
+  </CstmrCdtTrfInitn>
+</Document>`;
+
+        openModal(
+          "SEPA Betaalbatch (ISO 20022 pain.001.001.03) — Isabel 6 / PSD2",
+          `Dossier ${d.name} • ${selected.length} transacties • Totaal: ${formatEUR(total)}`,
+          `
+            <div class="space-y-3">
+              <div class="p-3.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-xs flex items-center justify-between">
+                <span>Debetrekening: <strong>${d.accounts.management.iban}</strong> (${d.accounts.management.bank})</span>
+                <span>Alle transacties worden direct doorgeboekt naar het CRBP-jaarverslag.</span>
+              </div>
+              <pre class="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] text-xs font-mono overflow-x-auto leading-relaxed">${sepaXml
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")}</pre>
+            </div>
+          `,
+          `
+            <button id="confirm-sepa-exec-btn" type="button" class="px-4 py-2 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold">
+              Onderteken &amp; Voer SEPA Batch Uit (${formatEUR(total)})
+            </button>
+          `
+        );
+
+        document.getElementById("confirm-sepa-exec-btn").addEventListener("click", () => {
+          selected.forEach((inv) => {
+            inv.status = "PAID";
+            inv.selected = false;
+            const expCat = d.annualExpenses.find((e) => e.code === inv.crbpCode);
+            if (expCat) {
+              expCat.amount += inv.amount;
+              expCat.docsCount += 1;
+            } else {
+              d.annualExpenses.push({
+                code: inv.crbpCode,
+                description: CRBP_CATEGORIES[inv.crbpCode].label,
+                amount: inv.amount,
+                docsCount: 1
+              });
+            }
+          });
+          d.accounts.management.balance -= total;
+          closeModal();
+          showToast(
+            "SEPA Betaalbatch Uitgevoerd & Gecategoriseerd",
+            `${selected.length} facturen (${formatEUR(total)}) betaald en gekoppeld aan de CRBP-rubrieken van ${d.name}.`
+          );
+          renderShell();
+        });
+      });
+    }
+
+    // =========================================================================
+    // TAB 2: CRBP JAARVERSLAG & VREDEGERECHT (JUST-ON-WEB)
+    // =========================================================================
+    function renderCrbpTab() {
+      const d = getActiveDossier();
+      const totalIncome = d.annualIncomes.reduce((s, x) => s + x.amount, 0);
+      const legalFeeForfait = totalIncome * 0.03; // Art. 497/5 BW: 3% op periodieke inkomsten
+      const baseExpenses = d.annualExpenses.reduce((s, x) => s + x.amount, 0);
+      const totalExpensesWithFee = baseExpenses + legalFeeForfait;
+      const netAnnualResult = totalIncome - totalExpensesWithFee;
+      const totalLiquidAssets =
+        d.accounts.management.balance + d.accounts.allowance.balance + d.accounts.savings.balance;
+      const totalRealEstate = d.assets.reduce((s, a) => s + a.estimatedValue, 0);
+
+      return `
+        <div class="space-y-6">
+          <!-- Top Summary Banner -->
+          <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-base font-semibold">Periodiek Verslag Bewindvoering — Model CRBP (Art. 498/3 &amp; 499/14 BW)</h2>
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[var(--secondary)] text-[var(--secondary-foreground)]">
+                  100% Transacties Gecategoriseerd
+                </span>
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-medium border border-[var(--border)] text-[var(--muted-foreground)]">
+                  DPA / Just-on-Web Koppeling: Inactief
+                </span>
+              </div>
+              <p class="text-xs text-[var(--muted-foreground)] mt-1">
+                Bevoegde instantie: <strong>${d.canton}</strong> • Dossierreferentie CRBP: <strong class="font-mono">${d.crbpRef}</strong>
+              </p>
+            </div>
+            <div class="flex items-center gap-2.5">
+              <button
+                id="download-crbp-pdf-direct-btn"
+                type="button"
+                class="px-4 py-2.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold shadow-sm hover:opacity-95"
+              >
+                Download CRBP Jaarverslag (PDF voor Vredegerecht)
+              </button>
+              <button
+                id="open-crbp-report-btn"
+                type="button"
+                class="px-3.5 py-2.5 rounded-lg border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--secondary)] text-xs font-semibold"
+              >
+                Voorbeeld &amp; Stavingsstukken Bekijken
+              </button>
+            </div>
+          </div>
+
+          <!-- KPI Overview -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
+              <p class="text-xs text-[var(--muted-foreground)]">Totaal Geïnde Inkomsten (Jaar)</p>
+              <p class="text-xl font-bold mt-1">${formatEUR(totalIncome)}</p>
+              <p class="text-xs text-[var(--muted-foreground)] mt-1">Grondslag ereloonberekening</p>
+            </div>
+            <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
+              <p class="text-xs text-[var(--muted-foreground)]">Totaal Uitgaven (incl. Ereloon)</p>
+              <p class="text-xl font-bold mt-1">${formatEUR(totalExpensesWithFee)}</p>
+              <p class="text-xs text-[var(--muted-foreground)] mt-1">Alle stavingsstukken gekoppeld</p>
+            </div>
+            <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
+              <p class="text-xs text-[var(--muted-foreground)]">Wettelijk Forfait Ereloon (3%)</p>
+              <p class="text-xl font-bold mt-1">${formatEUR(legalFeeForfait)}</p>
+              <p class="text-xs text-[var(--muted-foreground)] mt-1">Conform Art. 497/5 BW</p>
+            </div>
+            <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
+              <p class="text-xs text-[var(--muted-foreground)]">Netto Jaaroverschot / -tekort</p>
+              <p class="text-xl font-bold mt-1">${netAnnualResult >= 0 ? "+" : ""}${formatEUR(netAnnualResult)}</p>
+              <p class="text-xs text-[var(--muted-foreground)] mt-1">Liquide vermogen: ${formatEUR(totalLiquidAssets)}</p>
+            </div>
+          </div>
+
+          <!-- Two-Column Breakdown: Incomes & Expenses -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Inkomsten Rubrieken -->
+            <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 space-y-4">
+              <div class="flex items-center justify-between border-b border-[var(--border)] pb-3">
+                <h3 class="text-sm font-semibold">Deel I — Ontvangsten per CRBP-Rubriek</h3>
+                <span class="text-xs font-semibold">${formatEUR(totalIncome)}</span>
+              </div>
+              <div class="space-y-3">
+                ${d.annualIncomes
+                  .map(
+                    (inc) => `
+                  <div class="p-3.5 rounded-lg border border-[var(--border)] bg-[var(--background)] flex items-center justify-between gap-3">
+                    <div>
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)]">${inc.code}</span>
+                        <span class="text-xs font-semibold">${CRBP_CATEGORIES[inc.code].label}</span>
+                      </div>
+                      <p class="text-xs text-[var(--muted-foreground)] mt-1">${inc.description} • ${inc.docsCount} bewijsstukken</p>
+                    </div>
+                    <span class="text-xs font-bold whitespace-nowrap">${formatEUR(inc.amount)}</span>
+                  </div>
+                `
+                  )
+                  .join("")}
+              </div>
+            </div>
+
+            <!-- Uitgaven Rubrieken -->
+            <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 space-y-4">
+              <div class="flex items-center justify-between border-b border-[var(--border)] pb-3">
+                <h3 class="text-sm font-semibold">Deel II — Uitgaven per CRBP-Rubriek</h3>
+                <span class="text-xs font-semibold">${formatEUR(totalExpensesWithFee)}</span>
+              </div>
+              <div class="space-y-3">
+                ${d.annualExpenses
+                  .map(
+                    (exp) => `
+                  <div class="p-3.5 rounded-lg border border-[var(--border)] bg-[var(--background)] flex items-center justify-between gap-3">
+                    <div>
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)]">${exp.code}</span>
+                        <span class="text-xs font-semibold">${CRBP_CATEGORIES[exp.code].label}</span>
+                      </div>
+                      <p class="text-xs text-[var(--muted-foreground)] mt-1">${exp.description} • ${exp.docsCount} PDF-facturen</p>
+                    </div>
+                    <span class="text-xs font-bold whitespace-nowrap">${formatEUR(exp.amount)}</span>
+                  </div>
+                `
+                  )
+                  .join("")}
+                <!-- Automatisch berekend ereloon -->
+                <div class="p-3.5 rounded-lg border border-[var(--border)] bg-[var(--background)] flex items-center justify-between gap-3">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)]">UIT-05</span>
+                      <span class="text-xs font-semibold">${CRBP_CATEGORIES["UIT-05"].label}</span>
+                    </div>
+                    <p class="text-xs text-[var(--muted-foreground)] mt-1">Automatisch berekend: 3% op ${formatEUR(totalIncome)} (Begroot door Vrederechter)</p>
+                  </div>
+                  <span class="text-xs font-bold whitespace-nowrap">${formatEUR(legalFeeForfait)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Deel III: Samenvatting Vermogenstoestand -->
+          <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5">
+            <h3 class="text-sm font-semibold mb-3">Deel III — Actuele Vermogenstoestand voor het Vredegerecht</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+              <div class="p-3 rounded-lg bg-[var(--background)] border border-[var(--border)]">
+                <p class="text-[var(--muted-foreground)]">Beheerrekening (${d.accounts.management.iban})</p>
+                <p class="text-sm font-bold mt-1">${formatEUR(d.accounts.management.balance)}</p>
+              </div>
+              <div class="p-3 rounded-lg bg-[var(--background)] border border-[var(--border)]">
+                <p class="text-[var(--muted-foreground)]">Leefgeldrekening (${d.accounts.allowance.iban})</p>
+                <p class="text-sm font-bold mt-1">${formatEUR(d.accounts.allowance.balance)}</p>
+              </div>
+              <div class="p-3 rounded-lg bg-[var(--background)] border border-[var(--border)]">
+                <p class="text-[var(--muted-foreground)]">Spaarrekening (${d.accounts.savings.iban})</p>
+                <p class="text-sm font-bold mt-1">${formatEUR(d.accounts.savings.balance)}</p>
+              </div>
+              <div class="p-3 rounded-lg bg-[var(--background)] border border-[var(--border)]">
+                <p class="text-[var(--muted-foreground)]">Onroerend &amp; Roerend Patrimonium</p>
+                <p class="text-sm font-bold mt-1">${formatEUR(totalRealEstate)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function downloadCrbpPdfForDossier(d) {
+      const totalIncome = d.annualIncomes.reduce((s, x) => s + x.amount, 0);
+      const legalFeeForfait = totalIncome * 0.03;
+      const baseExpenses = d.annualExpenses.reduce((s, x) => s + x.amount, 0);
+      const totalExpenses = baseExpenses + legalFeeForfait;
+      const netResult = totalIncome - totalExpenses;
+
+      const lines = [
+        "PERIODIEK VERSLAG BEWINDVOERING - VREDEGERECHT (MODEL CRBP)",
+        "========================================================================",
+        `Bevoegde Rechtbank : ${d.canton}`,
+        `CRBP Referentie    : ${d.crbpRef}`,
+        `Datum Verslag      : ${new Date().toLocaleDateString("nl-BE")}`,
+        "------------------------------------------------------------------------",
+        "1. IDENTIFICATIE VAN DE BESCHERMDE PERSOON & HET MANDAAT",
+        `Naam               : ${d.name} (Geboren: ${d.birthDate} - RRN: ${d.rrnMasked})`,
+        `Verblijfplaats     : ${d.livingSituation}`,
+        `Zorgprofiel        : ${d.katzScale} - ${d.mutuality}`,
+        `Aanstelling        : ${d.appointmentDate} (${d.scope})`,
+        `Bewindvoerder      : Mr. Jan De Smet, Advocaat`,
+        "------------------------------------------------------------------------",
+        "2. OVERZICHT ONTVANGSTEN PER CRBP-RUBRIEK",
+        ...d.annualIncomes.map(
+          (inc) => `  [${inc.code}] ${inc.description.padEnd(48, " ")} : EUR ${inc.amount.toFixed(2)}`
+        ),
+        `  TOTAAL ONTVANGSTEN                                    : EUR ${totalIncome.toFixed(2)}`,
+        "------------------------------------------------------------------------",
+        "3. OVERZICHT UITGAVEN PER CRBP-RUBRIEK",
+        ...d.annualExpenses.map(
+          (exp) => `  [${exp.code}] ${exp.description.padEnd(48, " ")} : EUR ${exp.amount.toFixed(2)}`
+        ),
+        `  [UIT-05] Ereloon & Kosten Bewindvoerder (3% Art.497/5): EUR ${legalFeeForfait.toFixed(2)}`,
+        `  TOTAAL UITGAVEN                                       : EUR ${totalExpenses.toFixed(2)}`,
+        `  NETTO JAARSALDO                                       : EUR ${netResult.toFixed(2)}`,
+        "------------------------------------------------------------------------",
+        "4. ACTUELE VERMOGENSTOESTAND & REKENINGSTANDEN",
+        `  Beheerrekening (${d.accounts.management.iban})        : EUR ${d.accounts.management.balance.toFixed(2)}`,
+        `  Leefgeldrekening (${d.accounts.allowance.iban})       : EUR ${d.accounts.allowance.balance.toFixed(2)}`,
+        `  Spaarrekening (${d.accounts.savings.iban})            : EUR ${d.accounts.savings.balance.toFixed(2)}`,
+        ...d.assets.map(
+          (a) => `  Patrimonium: ${a.name.padEnd(40, " ")} : EUR ${a.estimatedValue.toFixed(2)}`
+        ),
+        "------------------------------------------------------------------------",
+        "Ondergetekende verklaart dit verslag oprecht en volledig (Art. 499/14 BW)."
+      ];
+
+      const esc = (s) =>
+        s.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)").replace(/[^\x20-\x7E]/g, " ");
+      let stream = "BT\n/F1 10 Tf\n42 790 Td\n14 TL\n";
+      lines.forEach((l) => {
+        stream += `(${esc(l)}) Tj T*\n`;
+      });
+      stream += "ET";
+
+      const objs = [
+        "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+        "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+        "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n",
+        "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>\nendobj\n",
+        `5 0 obj\n<< /Length ${stream.length} >>\nstream\n${stream}\nendstream\nendobj\n`
+      ];
+
+      let pdf = "%PDF-1.4\n";
+      const offsets = [];
+      objs.forEach((o) => {
+        offsets.push(pdf.length);
+        pdf += o;
+      });
+      const xrefPos = pdf.length;
+      pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n`;
+      offsets.forEach((off) => {
+        pdf += `${String(off).padStart(10, "0")} 00000 n \n`;
+      });
+      pdf += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
+
+      const blob = new Blob([pdf], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `CRBP_Jaarverslag_${d.crbpRef.replace(/\//g, "_")}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      showToast(
+        "CRBP Jaarverslag PDF Gegenereerd",
+        `Het PDF-verslag voor ${d.canton} (${d.crbpRef}) is gedownload.`
+      );
+    }
+
+    function bindCrbpEvents() {
+      const d = getActiveDossier();
+      document.getElementById("download-crbp-pdf-direct-btn").addEventListener("click", () => {
+        downloadCrbpPdfForDossier(d);
+      });
+      document.getElementById("open-crbp-report-btn").addEventListener("click", () => {
+        const totalIncome = d.annualIncomes.reduce((s, x) => s + x.amount, 0);
+        const legalFeeForfait = totalIncome * 0.03;
+        const baseExpenses = d.annualExpenses.reduce((s, x) => s + x.amount, 0);
+        const totalDocs =
+          d.annualIncomes.reduce((s, x) => s + x.docsCount, 0) +
+          d.annualExpenses.reduce((s, x) => s + x.docsCount, 0);
+
+        openModal(
+          `Officieel CRBP Jaarverslag — ${d.canton}`,
+          `Centraal Register van de Bescherming van de Personen (Referentie: ${d.crbpRef})`,
+          `
+            <div class="space-y-4 text-xs leading-relaxed">
+              <div class="p-4 rounded-xl border border-[var(--border)] bg-[var(--background)] space-y-1">
+                <p class="font-semibold text-sm">1. Identificatie van het Bewind</p>
+                <p><strong>Beschermde persoon:</strong> ${d.name}, geboren op ${d.birthDate} (RRN: ${d.rrnMasked})</p>
+                <p><strong>Verblijfplaats:</strong> ${d.livingSituation}</p>
+                <p><strong>Bewindvoerder over goederen &amp; persoon:</strong> Mr. Jan De Smet, Advocaat te Antwerpen</p>
+                <p><strong>Datum aanstelling beschikking:</strong> ${d.appointmentDate}</p>
+              </div>
+
+              <div class="p-4 rounded-xl border border-[var(--border)] bg-[var(--background)] space-y-1">
+                <p class="font-semibold text-sm">2. Verslag Bescherming van de Persoon (Levensomstandigheden)</p>
+                <p>De beschermde persoon verblijft in ${d.livingSituation} (zorgprofiel ${d.katzScale}). De medische en paramedische omkadering verloopt via de ter plaatse gecontracteerde zorgverleners. Het wekelijks leefgeld bedraagt ${formatEUR(d.weeklyAllowance)} en wordt stipt via een geautomatiseerde periodieke opdracht op de zakgeldrekening gestort.</p>
+              </div>
+
+              <div class="p-4 rounded-xl border border-[var(--border)] bg-[var(--background)] space-y-2">
+                <p class="font-semibold text-sm">3. Financieel Verslag &amp; Rekeninguittreksels (${totalDocs} gebundelde stavingsstukken)</p>
+                <div class="flex justify-between border-b border-[var(--border)] pb-1">
+                  <span>Totaal Ontvangsten (Rubrieken INK-01 t/m INK-03):</span>
+                  <strong>${formatEUR(totalIncome)}</strong>
+                </div>
+                <div class="flex justify-between border-b border-[var(--border)] pb-1">
+                  <span>Totaal Uitgaven (Rubrieken UIT-01 t/m UIT-04):</span>
+                  <strong>${formatEUR(baseExpenses)}</strong>
+                </div>
+                <div class="flex justify-between border-b border-[var(--border)] pb-1">
+                  <span>Verzoek tot begroting ereloon (3% forfait art. 497/5 BW):</span>
+                  <strong>${formatEUR(legalFeeForfait)}</strong>
+                </div>
+                <div class="flex justify-between pt-1">
+                  <span>Eindsaldo Beheerrekening (${d.accounts.management.iban}):</span>
+                  <strong>${formatEUR(d.accounts.management.balance)}</strong>
+                </div>
+                <div class="flex justify-between">
+                  <span>Eindsaldo Spaarrekening (${d.accounts.savings.iban}):</span>
+                  <strong>${formatEUR(d.accounts.savings.balance)}</strong>
+                </div>
+              </div>
+            </div>
+          `,
+          `
+            <button type="button" disabled class="px-3.5 py-2 rounded-lg border border-[var(--border)] text-[var(--muted-foreground)] text-xs font-medium opacity-60 cursor-not-allowed">
+              Just-on-Web / DPA Rechtstreekse Indeling (Inactief)
+            </button>
+            <button id="download-crbp-pdf-modal-btn" type="button" class="px-4 py-2 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold">
+              Genereer &amp; Download PDF voor Vredegerecht
+            </button>
+          `
+        );
+
+        document.getElementById("download-crbp-pdf-modal-btn").addEventListener("click", () => {
+          downloadCrbpPdfForDossier(d);
+          closeModal();
+        });
+      });
+    }
+
+    // =========================================================================
+    // TAB 3: WZC ZORGPORTAAL & SJABLOON-AUTOMATISATIE (BRIEVEN)
+    // =========================================================================
+    function renderCareTab() {
+      const d = getActiveDossier();
+
+      return `
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Left 2 Columns: Structured Care Requests from WZC / Thuiszorg -->
+          <div class="lg:col-span-2 space-y-6">
+            <!-- New Care Request Form (Usable by Care Portal or Admin) -->
+            <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 space-y-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h2 class="text-base font-semibold">Gestructureerde Uitgave-aanvraag (WZC / Thuiszorg Portaal)</h2>
+                  <p class="text-xs text-[var(--muted-foreground)] mt-0.5">
+                    Vervangt losse e-mails en telefoontjes tussen het rusthuis en het advocatenkantoor.
+                  </p>
+                </div>
+                <span class="text-xs px-2.5 py-1 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] font-medium">
+                  Directe Budgetcheck
+                </span>
+              </div>
+
+              <form id="new-care-request-form" class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div class="md:col-span-2">
+                  <label for="care-title" class="block text-[var(--muted-foreground)] mb-1">Omschrijving benodigdheid (bv. bril, schoenen, pedicure)</label>
+                  <input
+                    id="care-title"
+                    type="text"
+                    required
+                    placeholder="Bv. Nieuwe multifocale bril na oogartsconsult"
+                    class="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-xs"
+                  />
+                </div>
+                <div>
+                  <label for="care-amount" class="block text-[var(--muted-foreground)] mb-1">Geraamd bedrag (€)</label>
+                  <input
+                    id="care-amount"
+                    type="number"
+                    min="5"
+                    step="0.5"
+                    required
+                    placeholder="145.00"
+                    class="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-xs"
+                  />
+                </div>
+                <div class="md:col-span-2">
+                  <label for="care-justification" class="block text-[var(--muted-foreground)] mb-1">Motivatie zorgteam / verpleegkundige</label>
+                  <input
+                    id="care-justification"
+                    type="text"
+                    required
+                    placeholder="Bv. Bestek opticien bijgevoegd; noodzakelijk voor valpreventie."
+                    class="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-xs"
+                  />
+                </div>
+                <div class="flex items-end">
+                  <button
+                    type="submit"
+                    class="w-full px-4 py-2 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold hover:opacity-95"
+                  >
+                    + Dien Zorgaanvraag In
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- List of Care Requests -->
+            <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 space-y-4">
+              <h3 class="text-sm font-semibold">Ingediende Aanvragen voor ${d.name} (${d.careRequests.length})</h3>
+              ${
+                d.careRequests.length === 0
+                  ? `<p class="text-xs text-[var(--muted-foreground)] py-4">Geen openstaande zorgaanvragen voor dit dossier.</p>`
+                  : `<div class="space-y-3">
+                      ${d.careRequests
+                        .map(
+                          (req) => `
+                        <div class="p-4 rounded-xl border border-[var(--border)] bg-[var(--background)] flex flex-wrap items-center justify-between gap-4">
+                          <div class="space-y-1 max-w-xl">
+                            <div class="flex items-center gap-2">
+                              <span class="text-xs font-bold text-[var(--foreground)]">${req.title}</span>
+                              <span class="text-xs px-2 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] font-mono">${req.crbpCode}</span>
+                            </div>
+                            <p class="text-xs text-[var(--muted-foreground)]">${req.justification}</p>
+                            <p class="text-xs text-[var(--muted-foreground)]">Ingediend door: <strong>${req.requesterName}</strong> (${req.requesterOrg}) op ${req.date}</p>
+                          </div>
+                          <div class="flex items-center gap-3">
+                            <span class="text-sm font-bold">${formatEUR(req.amount)}</span>
+                            ${
+                              req.status === "PENDING" && state.roleMode === "admin"
+                                ? `
+                                <button
+                                  type="button"
+                                  data-approve-req="${req.id}"
+                                  class="approve-care-btn px-3 py-1.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold"
+                                >
+                                  Goedkeuren &amp; Budgetteren
+                                </button>
+                                <button
+                                  type="button"
+                                  data-reject-req="${req.id}"
+                                  class="reject-care-btn px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-xs font-medium hover:bg-[var(--secondary)]"
+                                >
+                                  Afwijzen
+                                </button>
+                              `
+                                : `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--secondary)] text-[var(--secondary-foreground)]">
+                                    ${req.status === "APPROVED" ? "✓ Goedgekeurd door Bewindvoerder" : req.status === "REJECTED" ? "Geweigerd" : "In behandeling bij Bewindvoerder"}
+                                  </span>`
+                            }
+                          </div>
+                        </div>
+                      `
+                        )
+                        .join("")}
+                    </div>`
+              }
+            </div>
+          </div>
+
+          <!-- Right Column: Sjabloon-Automatisatie (Officiële Kennisgevingsbrieven) -->
+          <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 space-y-4 h-fit">
+            <div>
+              <h2 class="text-base font-semibold">Sjabloon-Automatisatie (Art. 492/1 BW)</h2>
+              <p class="text-xs text-[var(--muted-foreground)] mt-1">
+                Verstuur met één klik officiële kennisgevingen van aanstelling bewindvoerder en adreswijziging voor briefwisseling.
+              </p>
+            </div>
+
+            <div class="space-y-3 text-xs">
+              ${[
+                {
+                  key: "fod",
+                  title: "FOD Financiën & Vlaamse Belastingdienst",
+                  desc: "Kennisgeving bewind + doorsturen aanslagbiljetten naar kantooradres."
+                },
+                {
+                  key: "mutuality",
+                  title: `Ziekenfonds (${d.mutuality}) & VSB`,
+                  desc: "Koppeling terugbetalingen gezondheidszorg en Vlaams Zorgbudget aan beheerrekening."
+                },
+                {
+                  key: "banks",
+                  title: "Febelfin / Bankenprotocol (KBC, Belfius, BNP)",
+                  desc: "Blokkering volmachten derden, activatie PSD2 beheerrekening en aparte zakgeldkaart."
+                },
+                {
+                  key: "utilities",
+                  title: "Nutsbedrijven & Leveranciers (Bescherming Deurwaarder)",
+                  desc: "Melding rechterlijke bescherming om invorderingskosten op het thuisadres te vermijden."
+                }
+              ]
+                .map(
+                  (item) => `
+                <div class="p-3.5 rounded-xl border border-[var(--border)] bg-[var(--background)] space-y-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="font-semibold">${item.title}</span>
+                    <span class="px-2 py-0.5 rounded text-xs font-medium bg-[var(--secondary)] text-[var(--secondary-foreground)]">
+                      ${d.notificationsSent[item.key] ? "✓ Verzonden" : "Nog te melden"}
+                    </span>
+                  </div>
+                  <p class="text-[var(--muted-foreground)]">${item.desc}</p>
+                  <button
+                    type="button"
+                    data-letter-key="${item.key}"
+                    data-letter-title="${item.title}"
+                    class="preview-letter-btn w-full mt-1 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] hover:bg-[var(--secondary)] font-semibold transition-colors"
+                  >
+                    Genereer &amp; Verstuur Kennisgevingsbrief
+                  </button>
+                </div>
+              `
+                )
+                .join("")}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function bindCareEvents() {
+      const d = getActiveDossier();
+
+      // Submit new care request
+      document.getElementById("new-care-request-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const title = document.getElementById("care-title").value.trim();
+        const amount = parseFloat(document.getElementById("care-amount").value);
+        const justification = document.getElementById("care-justification").value.trim();
+        if (!title || isNaN(amount)) return;
+
+        d.careRequests.unshift({
+          id: "cr-" + Date.now(),
+          requesterOrg: d.livingSituation.split("(")[0].trim(),
+          requesterName: state.roleMode === "care" ? "Verpleegkundige Zorgportaal" : "Kantoorinvoer",
+          title,
+          justification,
+          amount,
+          crbpCode: "UIT-03",
+          date: "06/11/2026",
+          status: "PENDING"
+        });
+        showToast(
+          "Zorgaanvraag Ingediend",
+          `Aanvraag "${title}" (${formatEUR(amount)}) geregistreerd voor goedkeuring.`
+        );
+        renderShell();
+      });
+
+      // Approve care request
+      document.querySelectorAll(".approve-care-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const reqId = e.target.getAttribute("data-approve-req");
+          const req = d.careRequests.find((r) => r.id === reqId);
+          if (req) {
+            req.status = "APPROVED";
+            // Also queue it in invoices so the workflow is connected!
+            d.invoices.unshift({
+              id: "inv-care-" + Date.now(),
+              supplier: `Terugbetaling Zorgaanvraag: ${req.title}`,
+              iban: d.accounts.allowance.iban,
+              amount: req.amount,
+              ogm: "+++000/0000/00097+++",
+              ogmValid: true,
+              dueDate: "15/11/2026",
+              crbpCode: req.crbpCode,
+              source: "Goedgekeurd via Zorgportaal",
+              confidence: 100,
+              status: "READY",
+              selected: true
+            });
+            showToast(
+              "Zorgaanvraag Goedgekeurd & Klaargezet in SEPA",
+              `${formatEUR(req.amount)} voor "${req.title}" is goedgekeurd en toegevoegd aan de SEPA-betaalwachtrij.`
+            );
+            renderShell();
+          }
+        });
+      });
+
+      // Reject care request
+      document.querySelectorAll(".reject-care-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const reqId = e.target.getAttribute("data-reject-req");
+          const req = d.careRequests.find((r) => r.id === reqId);
+          if (req) {
+            req.status = "REJECTED";
+            showToast("Zorgaanvraag Afgewezen", `Het zorgteam heeft melding ontvangen van de beslissing.`);
+            renderShell();
+          }
+        });
+      });
+
+      // Preview & Dispatch Official Letter
+      document.querySelectorAll(".preview-letter-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const key = e.target.getAttribute("data-letter-key");
+          const title = e.target.getAttribute("data-letter-title");
+          openModal(
+            `Officiële Kennisgeving van Bewindvoering — ${title}`,
+            `Automatisch gegenereerd voor dossier ${d.name} (CRBP ${d.crbpRef})`,
+            `
+              <div class="p-5 rounded-xl border border-[var(--border)] bg-[var(--background)] space-y-3 text-xs font-mono leading-relaxed">
+                <p><strong>AANGETEKEND / VIA EBOX ENTERPRISE</strong></p>
+                <p>Aan: ${title}<br/>Betreft: Kennisgeving rechterlijke beschermingsmaatregel (Art. 492/1 Burgerlijk Wetboek)<br/>Beschermde persoon: <strong>${d.name}</strong> (RRN ${d.rrnMasked})<br/>Beschikking: <strong>${d.canton} d.d. ${d.appointmentDate} (CRBP ${d.crbpRef})</strong></p>
+                <hr class="border-[var(--border)]" />
+                <p>Geachte mevrouw, geachte heer,</p>
+                <p>Bij beschikking van het ${d.canton} d.d. ${d.appointmentDate} werd ondergetekende, Mr. Jan De Smet, aangesteld als bewindvoerder over de goederen en de persoon van ${d.name}.</p>
+                <p>Gelieve met ingang van heden:</p>
+                <p>1. Alle briefwisseling, facturen en aanslagbiljetten uitsluitend te richten aan het kantooradres van de bewindvoerder (of digitaal via Peppol / CRBP-referentie ${d.crbpRef});<br/>2. Alle uitkeringen en terugbetalingen uitsluitend over te maken op beheerrekening <strong>${d.accounts.management.iban}</strong>;<br/>3. Geen rechtstreekse invorderingsmaatregelen te richten aan het verblijfsadres (${d.livingSituation}).</p>
+                <p>Als bijlage vindt u een uittreksel van de aanstellingsbeschikking uit het Centraal Register.</p>
+                <p>Met bijzondere hoogachting,<br/>Mr. Jan De Smet, Advocaat-Bewindvoerder</p>
+              </div>
+            `,
+            `
+              <button id="send-official-letter-btn" type="button" class="px-4 py-2 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold">
+                Digitaal Ondertekenen &amp; Verzenden (eBox / Aangetekend)
+              </button>
+            `
+          );
+
+          document.getElementById("send-official-letter-btn").addEventListener("click", () => {
+            d.notificationsSent[key] = true;
+            closeModal();
+            showToast(
+              "Kennisgevingsbrief Verzonden & Gearchiveerd",
+              `Officiële melding aan ${title} verzonden en opgeslagen in het dossier van ${d.name}.`
+            );
+            renderShell();
+          });
+        });
+      });
+    }
+
+    // =========================================================================
+    // TAB 4: WONING, INVENTARIS & CONTRACTOPZEGGINGEN (VERHUIS NAAR WZC)
+    // =========================================================================
+    function renderEstateTab() {
+      const d = getActiveDossier();
+      const activeContracts = d.contracts.filter((c) => c.status === "ACTIVE");
+      const monthlyActiveCost = activeContracts.reduce((s, c) => s + c.monthlyCost, 0);
+      const terminatedSavingsMonthly = d.contracts
+        .filter((c) => c.status === "TERMINATED")
+        .reduce((s, c) => s + c.monthlyCost, 0);
+
+      return `
+        <div class="space-y-6">
+          <!-- Section 1: Plaatsbeschrijving & Patrimonium (Art. 499/7 BW) -->
+          <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 class="text-base font-semibold">Woning- &amp; Boedelinventaris (Aanvangsvermogensverslag &amp; Art. 499/7 BW)</h2>
+                <p class="text-xs text-[var(--muted-foreground)] mt-0.5">
+                  Vastlegging van onroerende goederen, inboedel en bijzondere machtigingen van de vrederechter (bv. verkoop woning bij opname WZC).
+                </p>
+              </div>
+              <button
+                id="add-inventory-item-btn"
+                type="button"
+                class="px-3.5 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] hover:bg-[var(--secondary)] text-xs font-semibold"
+              >
+                + Voeg Boedelstuk / Foto-inventaris Toe
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              ${d.assets
+                .map(
+                  (asset) => `
+                <div class="p-4 rounded-xl border border-[var(--border)] bg-[var(--background)] space-y-2 text-xs">
+                  <div class="flex items-start justify-between gap-2">
+                    <div>
+                      <span class="font-semibold text-sm text-[var(--foreground)]">${asset.name}</span>
+                      <p class="text-[var(--muted-foreground)]">${asset.location}</p>
+                    </div>
+                    <span class="font-bold text-sm">${formatEUR(asset.estimatedValue)}</span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2 pt-1">
+                    <span class="px-2 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] font-medium">${asset.category}</span>
+                    <span class="px-2 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] font-medium">${asset.photoCount} Tijdstempel-foto's</span>
+                  </div>
+                  <p class="text-[var(--muted-foreground)] pt-1"><strong>Rechtsgrond:</strong> ${asset.judicialAuthRef}</p>
+                  <p class="text-[var(--foreground)] font-medium">Status: ${asset.status}</p>
+                </div>
+              `
+                )
+                .join("")}
+            </div>
+          </div>
+
+          <!-- Section 2: Contract-beëindigingshub bij verhuis naar WZC -->
+          <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 class="text-base font-semibold">Contractbeëindigingshub (Opzeg Abonnementen &amp; Nutsvoorzieningen)</h2>
+                <p class="text-xs text-[var(--muted-foreground)] mt-0.5">
+                  Zeg lopende abonnementen op het oude thuisadres automatisch op met bijgevoegd WZC-opnameattest en beschikking bewindvoering.
+                </p>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="text-right text-xs">
+                  <p class="text-[var(--muted-foreground)]">Al gerealiseerde besparing:</p>
+                  <p class="font-bold text-[var(--foreground)]">${formatEUR(terminatedSavingsMonthly * 12)} / jaar</p>
+                </div>
+                ${
+                  activeContracts.length > 0
+                    ? `<button
+                        id="terminate-all-contracts-btn"
+                        type="button"
+                        class="px-4 py-2 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold"
+                      >
+                        Zeg Alle ${activeContracts.length} Thuiscontracten Op (Bespaar ${formatEUR(monthlyActiveCost)}/m)
+                      </button>`
+                    : ""
+                }
+              </div>
+            </div>
+
+            ${
+              d.contracts.length === 0
+                ? `<p class="text-xs text-[var(--muted-foreground)] py-3">Geen op te zeggen thuiscontracten geregistreerd voor dit dossier.</p>`
+                : `<div class="overflow-x-auto border border-[var(--border)] rounded-xl">
+                    <table class="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr class="border-b border-[var(--border)] bg-[var(--sidebar)] text-[var(--muted-foreground)]">
+                          <th class="py-3 px-4">Leverancier &amp; Contract</th>
+                          <th class="py-3 px-4">Klant-/Contractnummer</th>
+                          <th class="py-3 px-4">Reden &amp; Juridisch Bewijsstuk</th>
+                          <th class="py-3 px-4 text-right">Maandkost</th>
+                          <th class="py-3 px-4 text-right">Actie / Status</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-[var(--border)]">
+                        ${d.contracts
+                          .map(
+                            (ct) => `
+                          <tr class="hover:bg-[var(--background)]">
+                            <td class="py-3.5 px-4 font-semibold">${ct.provider}</td>
+                            <td class="py-3.5 px-4 font-mono">${ct.contractNr}</td>
+                            <td class="py-3.5 px-4 text-[var(--muted-foreground)]">${ct.reason}</td>
+                            <td class="py-3.5 px-4 text-right font-semibold">${formatEUR(ct.monthlyCost)} / m</td>
+                            <td class="py-3.5 px-4 text-right">
+                              ${
+                                ct.status === "ACTIVE"
+                                  ? `<button
+                                      type="button"
+                                      data-term-id="${ct.id}"
+                                      class="term-single-btn px-3 py-1.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold"
+                                    >
+                                      Verstuur Opzegbrief
+                                    </button>`
+                                  : `<span class="px-2.5 py-1 rounded-full bg-[var(--secondary)] text-[var(--secondary-foreground)] font-semibold">
+                                      ✓ Opgezegd (Eindfactuur volgt)
+                                    </span>`
+                              }
+                            </td>
+                          </tr>
+                        `
+                          )
+                          .join("")}
+                      </tbody>
+                    </table>
+                  </div>`
+            }
+          </div>
+        </div>
+      `;
+    }
+
+    function bindEstateEvents() {
+      const d = getActiveDossier();
+
+      // Add inventory item
+      document.getElementById("add-inventory-item-btn").addEventListener("click", () => {
+        d.assets.push({
+          id: "as-" + Date.now(),
+          name: "Gouden zakhorloge & juwelenkistje (Kluis WZC)",
+          location: d.livingSituation,
+          estimatedValue: 1200,
+          category: "Waardevolle roerende goederen",
+          judicialAuthRequired: false,
+          judicialAuthRef: "Toegevoegd via Mobiele Plaatsbeschrijvingsapp",
+          photoCount: 4,
+          status: "Geregistreerd & vergrendeld in dossier"
+        });
+        showToast(
+          "Boedelstuk Toegevoegd aan Inventaris",
+          "Nieuw item met 4 tijdstempel-foto's gekoppeld aan het CRBP-vermogensverslag."
+        );
+        renderShell();
+      });
+
+      // Single contract termination
+      document.querySelectorAll(".term-single-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const id = e.target.getAttribute("data-term-id");
+          const ct = d.contracts.find((c) => c.id === id);
+          if (ct) {
+            ct.status = "TERMINATED";
+            showToast(
+              `Contract ${ct.provider} Opgezegd`,
+              `Aangetekende opzeg verzonden met WZC-attest. Jaarlijkse besparing: ${formatEUR(ct.monthlyCost * 12)}.`
+            );
+            renderShell();
+          }
+        });
+      });
+
+      // Terminate all active contracts
+      const termAllBtn = document.getElementById("terminate-all-contracts-btn");
+      if (termAllBtn) {
+        termAllBtn.addEventListener("click", () => {
+          let saved = 0;
+          d.contracts.forEach((c) => {
+            if (c.status === "ACTIVE") {
+              c.status = "TERMINATED";
+              saved += c.monthlyCost * 12;
+            }
+          });
+          showToast(
+            "Alle Thuiscontracten Opgezegd",
+            `Opzegbrieven verzonden. Dit bespaart ${d.name} ${formatEUR(saved)} per jaar.`
+          );
+          renderShell();
+        });
+      }
+    }
+
+    // --- GLOBAL SHELL LISTENERS ---
+    document.getElementById("dossier-select").addEventListener("change", (e) => {
+      state.activeDossierId = e.target.value;
+      const d = getActiveDossier();
+      showToast("Dossier Gewisseld", `Actief dossier: ${d.name} (${d.crbpRef})`);
+      renderShell();
+    });
+
+    document.getElementById("role-admin-btn").addEventListener("click", () => {
+      state.roleMode = "admin";
+      renderShell();
+    });
+
+    document.getElementById("role-care-btn").addEventListener("click", () => {
+      state.roleMode = "care";
+      renderShell();
+    });
+
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.activeTab = btn.getAttribute("data-tab");
+        renderShell();
+      });
+    });
+
+    // Initial render
+    renderShell();
+  </script>
+</body>
+</html>

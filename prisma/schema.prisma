@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MandateScope {
+  GOODS_ONLY
+  PERSON_ONLY
+  GOODS_AND_PERSON
+}
+
+enum RepresentationMode {
+  ASSISTANCE
+  REPRESENTATION
+}
+
+enum AccountRole {
+  MANAGEMENT
+  ALLOWANCE
+  SAVINGS
+  BLOCKED_ESTATE
+}
+
+enum InvoiceStatus {
+  OCR_REVIEW_NEEDED
+  READY
+  PAID
+  REJECTED
+}
+
+enum CareRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Dossier {
+  id                  String             @id @default(uuid())
+  tenantId            String             @map("tenant_id")
+  crbpRef             String             @unique @map("crbp_reference")
+  canton              String             @map("peace_court_canton")
+  appointmentDate     String             @map("appointment_date")
+  reportDue           String             @map("report_due_date")
+  scope               MandateScope       @default(GOODS_AND_PERSON)
+  mode                RepresentationMode @default(REPRESENTATION)
+  name                String
+  age                 Int
+  birthDate           String             @map("birth_date")
+  rrnMasked           String             @map("rrn_masked")
+  livingSituation     String             @map("living_situation")
+  katzScale           String             @map("katz_scale")
+  mutuality           String
+  weeklyAllowance     Float              @default(85.0) @map("weekly_allowance")
+  minBuffer           Float              @default(1500.0) @map("min_buffer")
+  bankSyncActive      Boolean            @default(false) @map("bank_sync_active")
+  justOnWebSyncActive Boolean            @default(false) @map("just_on_web_sync_active")
+  createdAt           DateTime           @default(now()) @map("created_at")
+
+  accounts            BankAccount[]
+  invoices            Invoice[]
+  careRequests        CareRequest[]
+  assets              AssetInventory[]
+  contracts           ContractTermination[]
+  auditLogs           AuditLog[]
+
+  @@map("dossiers")
+}
+
+model BankAccount {
+  id      String      @id @default(uuid())
+  dossierId String    @map("dossier_id")
+  iban    String      @unique
+  bank    String
+  role    AccountRole
+  balance Float       @default(0.0)
+
+  dossier Dossier     @relation(fields: [dossierId], references: [id])
+
+  @@map("bank_accounts")
+}
+
+model Invoice {
+  id         String        @id @default(uuid())
+  dossierId  String        @map("dossier_id")
+  supplier   String
+  iban       String
+  amount     Float
+  ogm        String
+  ogmValid   Boolean       @default(true) @map("ogm_valid")
+  dueDate    String        @map("due_date")
+  crbpCode   String        @map("crbp_code")
+  source     String
+  confidence Int           @default(99)
+  status     InvoiceStatus @default(READY)
+  selected   Boolean       @default(true)
+
+  dossier    Dossier       @relation(fields: [dossierId], references: [id])
+
+  @@map("invoices")
+}
+
+model CareRequest {
+  id            String            @id @default(uuid())
+  dossierId     String            @map("dossier_id")
+  requesterOrg  String            @map("requester_org")
+  requesterName String            @map("requester_name")
+  title         String
+  justification String
+  amount        Float
+  crbpCode      String            @map("crbp_code")
+  date          String
+  status        CareRequestStatus @default(PENDING)
+
+  dossier       Dossier           @relation(fields: [dossierId], references: [id])
+
+  @@map("care_requests")
+}
+
+model AssetInventory {
+  id                   String  @id @default(uuid())
+  dossierId            String  @map("dossier_id")
+  name                 String
+  location             String
+  estimatedValue       Float   @map("estimated_value")
+  category             String
+  judicialAuthRequired Boolean @default(false) @map("judicial_auth_required")
+  judicialAuthRef      String  @map("judicial_auth_ref")
+  photoCount           Int     @default(1) @map("photo_count")
+  status               String
+
+  dossier              Dossier @relation(fields: [dossierId], references: [id])
+
+  @@map("assets_inventory")
+}
+
+model ContractTermination {
+  id          String @id @default(uuid())
+  dossierId   String @map("dossier_id")
+  provider    String
+  contractNr  String @map("contract_nr")
+  monthlyCost Float  @map("monthly_cost")
+  reason      String
+  status      String @default("ACTIVE")
+
+  dossier     Dossier @relation(fields: [dossierId], references: [id])
+
+  @@map("contract_terminations")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  dossierId String   @map("dossier_id")
+  actor     String
+  action    String
+  details   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  dossier   Dossier  @relation(fields: [dossierId], references: [id])
+
+  @@map("audit_logs")
+}
